@@ -2,34 +2,34 @@
 
 [![arXiv](https://img.shields.io/badge/arXiv-2605.08366-b31b1b.svg)](https://arxiv.org/abs/2605.08366)
 
-SWE Atlas is a benchmark for evaluating AI coding agents across a spectrum of professional software engineering tasks. Rather than measuring a single skill in isolation, SWE Atlas consists of multiple leaderboards that target distinct and complementary capabilities in the Software Development Cycle.
-
-This repository has the data and instructions for running [SWE Atlas - Codebase QnA](https://labs.scale.com/leaderboard/sweatlas-qna), [SWE Atlas - Test Writing](https://labs.scale.com/leaderboard/sweatlas-tw) and [SWE Atlas - Refactoring](https://labs.scale.com/leaderboard/sweatlas-refactoring).
+SWE Atlas is a benchmark for coding agents across professional software engineering work. This
+repository has the tasks and the run setup for
+[SWE Atlas - Codebase QnA](https://labs.scale.com/leaderboard/sweatlas-qna),
+[SWE Atlas - Test Writing](https://labs.scale.com/leaderboard/sweatlas-tw) and
+[SWE Atlas - Refactoring](https://labs.scale.com/leaderboard/sweatlas-refactoring).
 
 | Lane | Tasks | The agent is asked to | Graded on |
 |---|---|---|---|
-| `qa-*` Codebase QnA | 124 | answer a question about a codebase | rubrics, rated by an LLM judge against the answer |
-| `tw-*` Test Writing | 90 | write tests for described behaviour | the tests must pass on the code and fail once the implementation is replaced, plus rubrics and a test manifest check |
-| `rf-*` Refactoring | 70 | refactor code without changing behaviour | the relevant tests must pass after the change, with no protected test file edited, plus rubrics |
+| `qa-*` | 124 | answer a question about a codebase | rubrics, rated by an LLM judge against the answer |
+| `tw-*` | 90 | write tests for described behaviour | the tests must pass on the code and fail once the implementation is replaced, plus rubrics |
+| `rf-*` | 70 | refactor code without changing behaviour | the relevant tests must still pass, plus rubrics |
 
 ```
 data/<lane>-<id>/
-├── task.toml          image, resources, timeouts, network allowlist, verifier settings
-├── instruction.md     what the agent is given
-├── environment/       Dockerfile: a single FROM of the task's digest-pinned image
-├── solution/          the reference solution
-└── tests/             the grader, rubrics and judge prompts
-run_config/            job.yaml (the run config) and helper scripts
+├── task.toml        image, resources, timeouts, network allowlist
+├── instruction.md   what the agent is given
+├── environment/     Dockerfile: one FROM of a public, digest-pinned image
+├── solution/        the reference solution
+└── tests/           the grader, rubrics and judge prompts
+configs/             one run config per run: oracle, nop and each leaderboard model
+datasets/            harbor dataset manifests, one per lane
+run.sh               the entry point: ./run.sh <config.yaml> [harbor args]
 ```
 
-Every task runs on a prebuilt public image, pinned by `@sha256` digest in `docker_image` in its
-`task.toml`. No registry credentials are needed.
+## 1. Install
 
-## Requirements
-
-[uv](https://docs.astral.sh/uv/getting-started/installation/),
-[harbor](https://github.com/laude-institute/harbor) 0.24.0 or 0.25.0 with its Modal extra, and a
-[Modal](https://modal.com/) account. The Modal CLI is installed separately:
+[uv](https://docs.astral.sh/uv/getting-started/installation/), harbor 0.24.0 or 0.25.0 with its
+Modal extra, and a [Modal](https://modal.com/) account:
 
 ```bash
 uv tool install 'harbor[modal]==0.25.0'
@@ -37,81 +37,74 @@ uv tool install modal
 modal setup
 ```
 
-## Environment Variables
+## 2. Credentials
 
 ```bash
 cp .env.example .env
 ```
 
-Fill in `.env`. Harbor reads it through `--env-file .env`, and the scripts in `run_config/` read it
-directly.
+- **Agent.** claude-code reads `ANTHROPIC_API_KEY`, codex `OPENAI_API_KEY`, antigravity-cli
+  `GEMINI_API_KEY`; each config names its keys, and the `*_BASE_URL` variables route through a proxy.
+- **Judge.** Any OpenAI-compatible endpoint, through `OPENAI_API_KEY` and `OPENAI_API_BASE` (or
+  `JUDGE_API_KEY` and `JUDGE_BASE_URL` for a separate key). The judge is `openai/gpt-6.1-sol` at
+  high reasoning effort, majority of 3 votes; `JUDGE_MODEL`, `JUDGE_REASONING_EFFORT` and
+  `JUDGE_VOTES` change it.
 
-- **Agent.** claude-code reads `ANTHROPIC_API_KEY` (and `ANTHROPIC_BASE_URL` for a proxy); codex
-  and mini-swe-agent read `OPENAI_API_KEY` and `OPENAI_BASE_URL`.
-- **Judge.** Rubrics are rated by an LLM through any OpenAI-compatible endpoint, set with
-  `OPENAI_API_KEY` and `OPENAI_API_BASE` (or `JUDGE_API_KEY` and `JUDGE_BASE_URL` to use a separate
-  key). The judge is `openai/gpt-6.1-sol` at high reasoning effort, and each verdict is the majority
-  of 3 votes; `JUDGE_MODEL`, `JUDGE_REASONING_EFFORT` and `JUDGE_VOTES` change them.
-
-The agent runs under a network allowlist, so the hostname of its model API (no `https://`, no path)
-has to be added: `extra_allowed_hosts` in `run_config/job.yaml`, or `--allow-agent-host <host>` on
-a plain `harbor run`. Use an API key that serves only the model under evaluation, without web-search
-models or tools.
-
-## Check the setup
+## 3. Check the setup
 
 The `oracle` agent applies each task's reference solution and grades it. One task should score
 `reward 1.0`:
 
 ```bash
-harbor run -p data -a oracle -e modal --env-file .env -y -i qa-6905333b74f22949d97ba9cc
+./run.sh configs/oracle.yaml -i qa-6905333b74f22949d97ba9cc
 ```
 
-`bash run_config/oracle.sh` runs the reference solutions over all three lanes and ends with a
-score table (`bash run_config/nop.sh` does the same with an agent that does nothing, which should
-score 0).
+`./run.sh configs/oracle.yaml` runs all 284 reference solutions; `./run.sh configs/nop.yaml` runs
+an agent that does nothing, which should score 0.
 
-## Run an agent
+## 4. Evaluate an agent
 
-`run_config/job.yaml` runs one agent over all 284 tasks with 3 attempts per task (pass@3), and
-retries infrastructure failures; an agent timeout is not retried. Set the model under evaluation
-and its API hostname (the two lines marked `EDIT:`), then:
+Each leaderboard model has a config with the settings it was scored with (harness, version,
+reasoning effort, web tools off, 3 attempts per task):
+
+| Config | Harness |
+|---|---|
+| `configs/claude-opus-5-5.yaml`, `configs/claude-sonnet-5-5.yaml` | claude-code 2.1.293, effort max |
+| `configs/gpt-6.1-sol.yaml`, `configs/gpt-6-astra.yaml` | codex 0.142.1, effort max |
+| `configs/gemini-4-argon.yaml`, `configs/gemini-3.8-flash.yaml` | antigravity-cli, effort high |
 
 ```bash
-harbor run -c run_config/job.yaml --env-file .env -y
-
-# one lane, or one task
-harbor run -c run_config/job.yaml -p data --env-file .env -y -i 'rf-*'
-harbor run -c run_config/job.yaml -p data --env-file .env -y -i rf-69391d8d1ce51c407be1e533
+./run.sh configs/claude-opus-5-5.yaml
 ```
 
-- **Other agents.** `job.yaml` has commented blocks for codex, mini-swe-agent, kimi-cli and vibe.
-  mini-swe-agent runs one lane at a time with that lane's prompt config,
-  `run_config/mswea/<lane>.yaml`. For any other harbor agent (`harbor run --help` lists them),
-  replace the whole agent block: set `name`, `model_name`, `extra_allowed_hosts`, and under `kwargs`
-  only the options that agent accepts (`harbor agent schema <name>` lists them). claude-code's
-  `version` and `disallowed_tools` do not carry over, and not every agent accepts
-  `reasoning_effort`. Turn off the agent's web tools, e.g. `disable_web_search: true` for opencode.
-- **Agent versions.** `job.yaml` pins claude-code 2.1.293, codex 0.142.1, mini-swe-agent 2.4.6,
-  kimi-cli 1.51.0 and vibe 3.0.4 through the agent's `version` kwarg.
-- **Run settings.** `n_attempts` (pass@k), `n_concurrent_trials` and `retry.max_retries` are set in
-  `job.yaml`.
+- **Network.** The agent runs under an allowlist, so its model API hostname (no `https://`, no
+  path) must be in `extra_allowed_hosts`; through a proxy, put the proxy's hostname there. Use a
+  key that serves only the model under evaluation.
+- **Web tools.** Keep them off: `disallowed_tools: WebSearch,WebFetch` for claude-code,
+  `web_search: disabled` for codex.
+- **Your own model or agent.** Copy the closest config and change `name`, `model_name`,
+  `extra_allowed_hosts` and `kwargs` (`harbor agent schema <name>` lists an agent's options).
+- **Run shape.** `n_attempts` (pass@k), `n_concurrent_trials` and `retry` are set per config.
 
-## Results
+## 5. Results
 
-Harbor writes each run to `jobs/<job-name>/`, one directory per trial. For pass@1 and pass@k:
+Harbor writes each run to `jobs/<job>/`, one directory per trial, and prints the mean of each
+metric when the run ends (also in `jobs/<job>/result.json`). The score is `reward` (0 or 1 per
+trial); its mean over all trials is pass@1 averaged over the attempts. Each trial's
+`verifier/reward.json` has the metrics behind it. Browse a run with `harbor view jobs`.
+
+An agent timeout is graded on the work the agent left; a refusal, an empty answer or a submission
+the judge could not rate scores 0. Trials that ended on an infrastructure error are not scores:
+rerun them in place with `harbor jobs resume -p jobs/<job> -f <ErrorType>`.
+
+## 6. Part of the dataset
+
+`-i` and `-x` take glob patterns over task names, `-l` caps the count:
 
 ```bash
-python3 run_config/summary.py jobs/<job-name>
+./run.sh configs/gpt-6.1-sol.yaml -i 'qa-*'            # one lane
+./run.sh configs/gpt-6.1-sol.yaml -x 'tw-*' -l 20      # 20 tasks, no tw
 ```
-
-Trials that harbor ended on an infrastructure error (environment, sandbox, agent proxy) are left
-out of pass@1 and listed under the table; rerun them. Every other trial counts as graded: an agent
-timeout is graded on the work the agent left, and a grader infrastructure exit or verifier timeout
-that remains after the retries, a refusal or an empty answer scores 0, and so does a submission the
-judge could not rate (the `not graded` column counts these). An agent job with qa trials, other than oracle or nop, gets
-a second row: qa without the 7 tasks some models refuse to answer. Browse a run with
-`harbor view jobs`.
 
 ## License
 
@@ -119,8 +112,6 @@ Apache License 2.0, see [LICENSE](LICENSE). Some qa rubric criteria reuse wordin
 Artificial Analysis SWE-Atlas-QnA-AA dataset; see [NOTICE](NOTICE).
 
 ## Citation
-
-If you use SWE Atlas in your research, please cite our paper:
 
 ```bibtex
 @misc{raghavendra2026sweatlasbenchmarkingcoding,
