@@ -2,11 +2,9 @@
 
 [![arXiv](https://img.shields.io/badge/arXiv-2605.08366-b31b1b.svg)](https://arxiv.org/abs/2605.08366)
 
-SWE Atlas is a benchmark for coding agents across professional software engineering work. This
-repository has the tasks and the run setup for
-[SWE Atlas - Codebase QnA](https://labs.scale.com/leaderboard/sweatlas-qna),
-[SWE Atlas - Test Writing](https://labs.scale.com/leaderboard/sweatlas-tw) and
-[SWE Atlas - Refactoring](https://labs.scale.com/leaderboard/sweatlas-refactoring).
+SWE Atlas is a benchmark for coding agents across professional software engineering work: Codebase
+QnA, Test Writing and Refactoring. This repository has the tasks and the run setup; results are on
+the [SWE Atlas leaderboard](https://labs.scale.com/leaderboard/swe-atlas).
 
 | Lane | Tasks | The agent is asked to | Graded on |
 |---|---|---|---|
@@ -21,7 +19,7 @@ data/<lane>-<id>/
 ├── environment/     Dockerfile: one FROM of a public, digest-pinned image
 ├── solution/        the reference solution
 └── tests/           the grader, rubrics and judge prompts
-configs/             one run config per run: oracle, nop and each leaderboard model
+configs/             one run config per run: oracle, nop and Anthropic and OpenAI leaderboard models
 datasets/            harbor dataset manifests, one per lane
 run.sh               the entry point: ./run.sh <config.yaml> [harbor args]
 ```
@@ -43,8 +41,8 @@ modal setup
 cp .env.example .env
 ```
 
-- **Agent.** claude-code reads `ANTHROPIC_API_KEY`, codex `OPENAI_API_KEY`, antigravity-cli
-  `GEMINI_API_KEY`; each config names its keys, and the `*_BASE_URL` variables route through a proxy.
+- **Agent.** claude-code reads `ANTHROPIC_API_KEY`, codex `OPENAI_API_KEY`; each config names its
+  keys, and `ANTHROPIC_BASE_URL` / `OPENAI_BASE_URL` route through a proxy.
 - **Judge.** Any OpenAI-compatible endpoint, through `OPENAI_API_KEY` and `OPENAI_API_BASE` (or
   `JUDGE_API_KEY` and `JUDGE_BASE_URL` for a separate key). The judge is `openai/gpt-6.1-sol` at
   high reasoning effort, majority of 3 votes; `JUDGE_MODEL`, `JUDGE_REASONING_EFFORT` and
@@ -64,14 +62,13 @@ an agent that does nothing, which should score 0.
 
 ## 4. Evaluate an agent
 
-Each leaderboard model has a config with the settings it was scored with (harness, version,
-reasoning effort, web tools off, 3 attempts per task):
+The Anthropic and OpenAI leaderboard models each have a config with the settings they were scored
+with (harness, version, reasoning effort, web tools off, 3 attempts per task):
 
 | Config | Harness |
 |---|---|
 | `configs/claude-opus-5-5.yaml`, `configs/claude-sonnet-5-5.yaml` | claude-code 2.1.293, effort max |
 | `configs/gpt-6.1-sol.yaml`, `configs/gpt-6-astra.yaml` | codex 0.142.1, effort max |
-| `configs/gemini-4-argon.yaml`, `configs/gemini-3.8-flash.yaml` | antigravity-cli, effort high |
 
 ```bash
 ./run.sh configs/claude-opus-5-5.yaml
