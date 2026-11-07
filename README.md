@@ -13,11 +13,11 @@ the [SWE Atlas leaderboard](https://labs.scale.com/leaderboard/swe-atlas).
 > a new judge (GPT-6.1 Sol, majority of 3 votes), refined grading criteria and restricted network
 > access, so v1.1 scores aren't directly comparable to v1.0.
 
-| Lane | Tasks | The agent is asked to | Graded on |
-|---|---|---|---|
-| `qa-*` | 124 | answer a question about a codebase | rubrics, rated by an LLM judge against the answer |
-| `tw-*` | 90 | write tests for described behaviour | the tests must pass on the code and fail once the implementation is replaced, plus rubrics |
-| `rf-*` | 70 | refactor code without changing behaviour | the relevant tests must still pass, plus rubrics |
+| Lane | Folder | Tasks | The agent is asked to | Graded on |
+|---|---|---|---|---|
+| Codebase QnA | `data/qa/` | 124 | answer a question about a codebase | rubrics, rated by an LLM judge against the answer |
+| Test Writing | `data/tw/` | 90 | write tests for described behaviour | the tests must pass on the code and fail once the implementation is replaced, plus rubrics |
+| Refactoring | `data/rf/` | 70 | refactor code without changing behaviour | the relevant tests must still pass, plus rubrics |
 
 ```
 data/
