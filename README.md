@@ -1,4 +1,6 @@
-# SWE Atlas
+# SWE Atlas v1.1
+
+**Evaluating coding agents on professional software engineering work beyond simple issue resolution**
 
 [![arXiv](https://img.shields.io/badge/arXiv-2605.08366-b31b1b.svg)](https://arxiv.org/abs/2605.08366)
 
