@@ -6,6 +6,11 @@ SWE Atlas is a benchmark for coding agents across professional software engineer
 QnA, Test Writing and Refactoring. This repository has the tasks and the run setup; results are on
 the [SWE Atlas leaderboard](https://labs.scale.com/leaderboard/swe-atlas).
 
+> **Update November 2026.** SWE Atlas v1.1 is live. It combines the three category leaderboards
+> into a single, easy-to-run index covering the same 284 tasks as v1.0. Every model was re-run with
+> a new judge (GPT-6.1 Sol, majority of 3 votes), refined grading criteria and restricted network
+> access, so v1.1 scores aren't directly comparable to v1.0.
+
 | Lane | Folder | Tasks | The agent is asked to | Graded on |
 |---|---|---|---|---|
 | Codebase QnA | `data/qa/` | 124 | answer a question about a codebase | rubrics, rated by an LLM judge against the answer |
@@ -107,6 +112,12 @@ Without a lane, a config runs all three folders. Name a lane to run one folder; 
 ./run.sh configs/gpt-6.1-sol.yaml qa -l 20             # 20 qa tasks
 ./run.sh configs/gpt-6.1-sol.yaml tw -x 'tw-6902*'     # tw without matching tasks
 ```
+
+## Acknowledgements
+
+Thanks to Artificial Analysis and Inductive ML for their contributions to the v1.1 release.
+Artificial Analysis's SWE-Atlas-QnA-AA dataset provided wording for several updated Codebase QnA
+rubric criteria, and Inductive ML's reward-hacking feedback further hardened the task environments.
 
 ## License
 
